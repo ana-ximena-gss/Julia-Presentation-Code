@@ -1,0 +1,677 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f4f6f2">
+  <title>Daymark | Julia live-demo script</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #182720;
+      --muted: #58675f;
+      --line: #d8e0da;
+      --paper: #fff;
+      --canvas: #f4f6f2;
+      --green: #17634e;
+      --green-dark: #104936;
+      --green-pale: #e7f1eb;
+      --blue: #245e86;
+      --blue-pale: #edf4f7;
+      --amber-pale: #fbf3e5;
+      --code: #14221d;
+      --code-ink: #f1f6f3;
+      --focus: #bd552f;
+      --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; scroll-padding-top: 76px; }
+    body { margin: 0; background: var(--canvas); color: var(--ink); font: 16px/1.58 var(--sans); }
+    a { color: var(--blue); }
+    button, a, summary { font: inherit; }
+    :focus-visible { outline: 3px solid var(--focus); outline-offset: 3px; }
+    [hidden] { display: none !important; }
+    code, .mono { font-family: var(--mono); font-size: .92em; }
+
+    .site-layout { display: grid; grid-template-columns: 246px minmax(0, 1fr); align-items: start; min-height: 100vh; }
+    .sidebar {
+      position: sticky; top: 0; display: flex; height: 100vh; min-height: 560px; flex-direction: column;
+      padding: 25px 15px 18px; border-right: 1px solid var(--line); background: #fbfcfa;
+    }
+    .brand { display: flex; align-items: center; gap: 11px; margin: 0 6px 28px; color: var(--ink); text-decoration: none; }
+    .brand-mark {
+      display: grid; width: 36px; height: 36px; flex: 0 0 36px; place-items: center; border-radius: 4px;
+      background: var(--green); color: #fff; font: 700 22px Georgia, "Times New Roman", serif;
+    }
+    .brand-name { display: block; font-size: 16px; font-weight: 780; line-height: 1.2; }
+    .brand-caption { display: block; margin-top: 3px; color: var(--muted); font-size: 12px; }
+    .nav-label { margin: 0 10px 9px; color: #718078; font-size: 11px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
+    .walk-nav { display: grid; gap: 4px; }
+    .nav-link {
+      display: grid; min-height: 43px; grid-template-columns: 28px minmax(0, 1fr) auto; align-items: center; gap: 8px;
+      padding: 6px 8px; border-left: 3px solid transparent; border-radius: 3px; color: #46564d; text-decoration: none;
+    }
+    .nav-link:hover, .support-link:hover { background: #f0f4f0; }
+    .nav-link[aria-current="location"] { border-left-color: var(--green); background: var(--green-pale); color: var(--green-dark); font-weight: 750; }
+    .nav-number {
+      display: grid; width: 25px; height: 25px; place-items: center; border: 1px solid #becbc2; border-radius: 50%;
+      color: #58675f; font: 11px var(--mono); font-variant-numeric: tabular-nums;
+    }
+    .nav-link[aria-current="location"] .nav-number, .nav-link.is-complete .nav-number { border-color: #79a993; background: #fff; color: var(--green-dark); }
+    .nav-title { min-width: 0; font-size: 13px; line-height: 1.25; }
+    .nav-state { color: #47715d; font-size: 10px; font-weight: 700; }
+    .support-nav { display: grid; gap: 2px; margin: 0 0 15px; padding: 0 7px; }
+    .support-nav-label { margin-top: 20px; }
+    .support-link { display: block; padding: 5px 8px; border-radius: 3px; color: #59685f; font-size: 12px; text-decoration: none; }
+    .sidebar-bottom { margin-top: auto; padding: 14px 9px 0; border-top: 1px solid var(--line); }
+    .sidebar-bottom strong { display: block; font-size: 12px; }
+    .sidebar-bottom p { margin: 4px 0 0; color: var(--muted); font-size: 12px; line-height: 1.45; }
+
+    .page-column { min-width: 0; }
+    .topbar {
+      position: sticky; z-index: 5; top: 0; display: flex; min-height: 54px; align-items: center;
+      justify-content: space-between; gap: 16px; padding: 8px clamp(22px, 4vw, 58px);
+      border-bottom: 1px solid var(--line); background: rgb(244 246 242 / 96%); backdrop-filter: blur(8px);
+    }
+    .topbar-label { color: var(--muted); font-size: 13px; }
+    .topbar-current { color: var(--green-dark); font-size: 13px; font-weight: 750; }
+    main { width: min(1080px, 100%); margin: 0 auto; padding: 0 clamp(22px, 4vw, 58px) 48px; }
+    .chapter { scroll-margin-top: 76px; padding: 48px 0 36px; border-bottom: 1px solid var(--line); }
+    .chapter:first-child { padding-top: 42px; }
+    .chapter:last-child { border-bottom: 0; padding-bottom: 18px; }
+    .chapter-heading { max-width: 820px; margin-bottom: 22px; }
+    .eyebrow { margin: 0 0 7px; color: var(--green); font-size: 12px; font-weight: 800; letter-spacing: .075em; text-transform: uppercase; }
+    h1, h2, h3, p { margin-top: 0; }
+    h1, h2 { font-family: Georgia, "Times New Roman", serif; font-weight: 600; }
+    h1 { margin-bottom: 0; font-size: 44px; line-height: 1.12; }
+    h2 { margin-bottom: 0; font-size: 34px; line-height: 1.18; }
+    h3 { margin-bottom: 9px; font-size: 17px; line-height: 1.3; }
+    .delivery-step { display: grid; grid-template-columns: 36px minmax(0, 1fr); gap: 14px; padding: 20px 0; border-top: 1px solid var(--line); }
+    .delivery-step:first-child { padding-top: 0; border-top: 0; }
+    .delivery-number {
+      display: grid; width: 33px; height: 33px; place-items: center; border: 1px solid #9ebca9; border-radius: 50%;
+      background: var(--green-pale); color: var(--green-dark); font: 750 13px var(--mono);
+    }
+    .delivery-content { min-width: 0; }
+    .delivery-content h3 { margin: 4px 0 12px; }
+    .script-cues { display: grid; gap: 9px; }
+    .script-cue { padding: 11px 13px; border-left: 3px solid var(--green); background: #eff5f0; }
+    .script-cue.do { border-left-color: #bc7831; background: var(--amber-pale); }
+    .script-cue.point { border-left-color: var(--blue); background: var(--blue-pale); }
+    .script-cue.pause { border-left-color: #9a6747; background: #f8f0ea; }
+    .script-cue-label { display: block; margin-bottom: 4px; color: var(--green-dark); font-size: 10px; font-weight: 850; letter-spacing: .07em; text-transform: uppercase; }
+    .script-cue.do .script-cue-label { color: #714815; }
+    .script-cue.point .script-cue-label { color: #24475e; }
+    .script-cue.pause .script-cue-label { color: #704b35; }
+    .script-cue p { margin: 0; color: #33473b; font-size: 15px; line-height: 1.6; }
+    .script-cue p + p { margin-top: 7px; }
+    .script-code { min-width: 0; margin-top: 9px; }
+    .code-panel, .terminal { min-width: 0; overflow: hidden; border: 1px solid #263d33; border-radius: 5px; background: var(--code); box-shadow: 0 8px 22px rgb(18 38 29 / 8%); }
+    .panel-head {
+      display: flex; min-height: 40px; align-items: center; justify-content: space-between; gap: 12px; padding: 6px 11px;
+      border-bottom: 1px solid rgb(255 255 255 / 12%); background: #1a2d25; color: #c7d8ce; font-size: 11px;
+    }
+    .panel-title { font-weight: 800; letter-spacing: .05em; text-transform: uppercase; }
+    .code-panel pre, .terminal pre {
+      overflow: auto; margin: 0; padding: 14px 16px 16px; color: var(--code-ink); font: 15px/1.62 var(--mono);
+      font-variant-ligatures: none; tab-size: 4; white-space: pre;
+    }
+    .token-keyword { color: #9ee3bd; font-weight: 700; }
+    .token-call { color: #9fd8ee; }
+    .token-string { color: #f2d487; }
+    .token-number { color: #eeaa83; }
+    .token-operator { color: #d7e6de; }
+    .token-comment { color: #91b8a2; }
+    .copy-button, .download-button {
+      display: inline-flex; min-height: 31px; align-items: center; justify-content: center; padding: 5px 9px;
+      border: 1px solid #61786c; border-radius: 3px; background: #243d32; color: #f1f6f3; cursor: pointer;
+      font-size: 12px; font-weight: 720; text-decoration: none; white-space: nowrap;
+    }
+    .copy-button:hover, .download-button:hover { background: #315341; }
+    .result { overflow: hidden; border: 1px solid #c8dbe7; border-radius: 4px; background: var(--blue-pale); }
+    .result-head { padding: 7px 11px; border-bottom: 1px solid #c8dbe7; color: #305770; font-size: 11px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; }
+    .result pre { overflow-x: auto; margin: 0; padding: 11px 13px 13px; color: #193d55; font: 14px/1.55 var(--mono); white-space: pre; }
+    .script-result { margin-top: 9px; }
+    .script-trace { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 8px 0 0; }
+    .script-trace code { padding: 3px 5px; border: 1px solid #c8d9cf; border-radius: 3px; background: #f5f9f6; color: var(--green-dark); }
+    .script-trace span { color: var(--green); font-weight: 800; }
+    .chapter-end { display: flex; justify-content: flex-end; margin-top: 20px; padding-top: 13px; border-top: 1px solid var(--line); }
+    .next-link { display: inline-flex; align-items: center; gap: 8px; color: var(--green-dark); font-size: 14px; font-weight: 780; text-decoration: none; }
+    .next-link:hover { text-decoration: underline; text-underline-offset: 3px; }
+
+    .support-section { scroll-margin-top: 76px; margin-top: 12px; padding: 35px clamp(22px, 4vw, 58px); border-top: 1px solid var(--line); background: #fbfcfa; }
+    .support-inner { width: min(1000px, 100%); margin: 0 auto; }
+    .support-section h2 { font-size: 29px; }
+    .support-section h3 { margin-top: 21px; }
+    .support-section p, .support-section li { color: #43544b; }
+    .before-list { max-width: 800px; padding-left: 22px; }
+    .before-list li { margin: 9px 0; }
+    .support-download { display: inline-flex; margin: 4px 0 8px; padding: 8px 12px; border: 1px solid var(--green); border-radius: 3px; background: var(--green); color: #fff; font-weight: 740; text-decoration: none; }
+    .support-download:hover { background: var(--green-dark); }
+    .support-status { max-width: 800px; margin: 8px 0; color: var(--muted) !important; font-size: 13px; }
+    .program-actions { display: flex; flex-wrap: wrap; gap: 7px; }
+    .program-actions .download-button { border-color: var(--green); background: var(--green); }
+    .full-program pre { max-height: 710px; font-size: 14px; line-height: 1.52; }
+    .reference-list { columns: 2; max-width: 760px; padding-left: 20px; line-height: 1.9; }
+    .live-status, .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; clip-path: inset(50%); }
+    footer { padding: 18px 0 0; color: #718078; font-size: 12px; }
+
+    @media (max-width: 850px) {
+      .site-layout { grid-template-columns: 1fr; }
+      .sidebar { z-index: 10; width: 100%; height: auto; min-height: 0; padding: 9px 15px 8px; border: 0; border-bottom: 1px solid var(--line); background: rgb(251 252 250 / 97%); }
+      .brand { margin: 0 0 8px 2px; }
+      .brand-mark { width: 29px; height: 29px; flex-basis: 29px; font-size: 18px; }
+      .brand-caption, .sidebar-bottom { display: none; }
+      .nav-label { display: none; }
+      .walk-nav { display: flex; overflow-x: auto; gap: 3px; padding: 0 0 2px; scrollbar-width: thin; }
+      .nav-link { min-width: max-content; min-height: 35px; grid-template-columns: 22px auto; gap: 6px; padding: 4px 8px; border: 0; border-bottom: 2px solid transparent; }
+      .nav-link[aria-current="location"] { border-bottom-color: var(--green); }
+      .nav-number { width: 21px; height: 21px; font-size: 10px; }
+      .nav-title { font-size: 12px; }
+      .nav-state, .support-nav-label { display: none; }
+      .support-nav { display: flex; overflow-x: auto; gap: 3px; margin: 3px 0 0; padding: 2px 0 0; }
+      .support-link { min-width: max-content; padding: 3px 8px; }
+      .topbar { position: static; min-height: 44px; padding: 6px 20px; }
+      main { padding-right: 24px; padding-left: 24px; }
+      .chapter { scroll-margin-top: 108px; padding: 39px 0 32px; }
+      .chapter:first-child { padding-top: 34px; }
+      .support-section { padding: 30px 24px; }
+    }
+    @media (max-width: 620px) {
+      body { font-size: 15px; }
+      .topbar { padding-right: 15px; padding-left: 15px; }
+      .topbar-label, .topbar-current { font-size: 11px; }
+      main { padding: 0 17px 36px; }
+      .chapter { padding: 31px 0 26px; }
+      .chapter:first-child { padding-top: 27px; }
+      h1 { font-size: 36px; }
+      h2 { font-size: 29px; }
+      .delivery-step { grid-template-columns: 28px minmax(0, 1fr); gap: 8px; padding: 16px 0; }
+      .delivery-number { width: 26px; height: 26px; font-size: 11px; }
+      .script-cue { padding: 10px 11px; }
+      .script-cue p { font-size: 14px; }
+      .code-panel pre, .terminal pre { padding: 11px 12px 13px; font-size: 13px; }
+      .result pre { font-size: 12px; }
+      .panel-head { align-items: flex-start; }
+      .panel-title { padding-top: 5px; }
+      .chapter-end { justify-content: flex-start; }
+      .support-section { padding: 26px 17px; }
+      .reference-list { columns: 1; }
+      .full-program pre { font-size: 12px; line-height: 1.5; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      html { scroll-behavior: auto; }
+      *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; }
+    }
+  </style>
+</head>
+<body>
+  <div class="site-layout">
+    <aside class="sidebar">
+      <a class="brand" href="#daymark" aria-label="Daymark, start of delivery script">
+        <span class="brand-mark" aria-hidden="true">D</span>
+        <span><span class="brand-name">Daymark</span><span class="brand-caption">Julia live-demo script</span></span>
+      </a>
+      <p class="nav-label">Delivery script</p>
+      <nav class="walk-nav" aria-label="Delivery sections">
+        <a class="nav-link" href="#daymark" aria-current="location"><span class="nav-number">1</span><span class="nav-title">Opening</span><span class="nav-state">Here</span></a>
+        <a class="nav-link" href="#readings"><span class="nav-number">2</span><span class="nav-title">Readings</span><span class="nav-state"></span></a>
+        <a class="nav-link" href="#average"><span class="nav-number">3</span><span class="nav-title">Average</span><span class="nav-state"></span></a>
+        <a class="nav-link" href="#labels"><span class="nav-number">4</span><span class="nav-title">Daily labels</span><span class="nav-state"></span></a>
+        <a class="nav-link" href="#complete"><span class="nav-number">5</span><span class="nav-title">Final run</span><span class="nav-state"></span></a>
+        <a class="nav-link" href="#recap"><span class="nav-number">6</span><span class="nav-title">Closing</span><span class="nav-state"></span></a>
+      </nav>
+      <p class="nav-label support-nav-label">Supporting material</p>
+      <nav class="support-nav" aria-label="Supporting material">
+        <a class="support-link" href="#before">Before the presentation</a>
+        <a class="support-link" href="#reference">Complete source and references</a>
+      </nav>
+      <div class="sidebar-bottom"><strong>From data to a daily brief</strong><p>One small Julia file, built step by step.</p></div>
+    </aside>
+
+    <div class="page-column">
+      <header class="topbar">
+        <span class="topbar-label">Julia · presenter script and live demo</span>
+        <span class="topbar-current" id="current-location" aria-live="polite">1 / 6 · Opening</span>
+      </header>
+
+      <main id="delivery">
+        <section class="chapter" id="daymark" aria-labelledby="daymark-title">
+          <div class="chapter-heading"><p class="eyebrow">Delivery · 1 of 6</p><h1 id="daymark-title">Daymark: from readings to a daily brief</h1></div>
+          <article class="delivery-step">
+            <span class="delivery-number" aria-hidden="true">1</span>
+            <div class="delivery-content"><h3>Open the story</h3><div class="script-cues">
+              <div class="script-cue"><span class="script-cue-label">Say</span><p>Welcome, everyone. We’re going to build Daymark, a small Julia program that turns four daily temperature readings into a short report. We’ll store the readings, calculate their average, and apply one simple rule: below 20 degrees is cool, and 20 degrees or higher is warm.</p></div>
+              <div class="script-cue"><span class="script-cue-label">Say</span><p>We’ll build the program together in an empty file, run it at a few checkpoints, and connect each new line of output to the code that produced it. By the end, we’ll have a complete report and a closer look at how Julia handles arrays, functions, loops, conditions, and strings.</p></div>
+              <div class="script-cue pause"><span class="script-cue-label">Pause</span><p>Let the audience settle on the project goal. No response is needed; continue when they are ready.</p></div>
+              <div class="script-cue"><span class="script-cue-label">Say</span><p>Our editor, terminal, and empty working file are ready. Let’s begin with the readings, because every calculation and label will use this same set of values.</p></div>
+            </div></div>
+          </article>
+          <div class="chapter-end"><a class="next-link" href="#readings">Continue to Step 2 · Store the readings <span aria-hidden="true">→</span></a></div>
+        </section>
+
+        <section class="chapter" id="readings" aria-labelledby="readings-title">
+          <div class="chapter-heading"><p class="eyebrow">Delivery · 2 of 6</p><h2 id="readings-title">Store and inspect the readings</h2></div>
+          <article class="delivery-step">
+            <span class="delivery-number" aria-hidden="true">2</span>
+            <div class="delivery-content"><h3>Create the vector</h3><div class="script-cues">
+              <div class="script-cue"><span class="script-cue-label">Say</span><p>Let’s start with our four temperature readings. We want to keep them together because the same values will feed both our average and our daily labels. In Julia, a vector is a one-dimensional array: one ordered collection. We’ll call ours <code>temperatures</code>.</p></div>
+              <div class="script-cue do"><span class="script-cue-label">Do — Editor</span><p>At the top of the empty file, type this first block, including the comments. These comments identify the program and its first stage.</p><div class="script-code"><div class="code-panel"><div class="panel-head"><span class="panel-title">Type at the top of the empty file</span><button class="copy-button" type="button" data-copy="code-readings-data">Copy code</button></div><pre><code id="code-readings-data"></code></pre></div></div></div>
+              <div class="script-cue"><span class="script-cue-label">Say</span><p>The variable name is <code>temperatures</code>, and the square brackets contain its four integer elements. In Python, we could store these same values in a list using similar bracket syntax; Julia calls this one-dimensional collection a vector.</p></div>
+              <div class="script-cue point"><span class="script-cue-label">Point to</span><p>Indicate <code>temperatures</code> and then the square brackets around the values.</p></div>
+            </div></div>
+          </article>
+          <article class="delivery-step">
+            <span class="delivery-number" aria-hidden="true">3</span>
+            <div class="delivery-content"><h3>Print the report heading and stored data</h3><div class="script-cues">
+              <div class="script-cue"><span class="script-cue-label">Say</span><p>The values are stored, but nothing has appeared in the terminal yet. Let’s add a heading and print the vector so the program gives us a visible report and we can confirm the readings stayed in order.</p></div>
+              <div class="script-cue do"><span class="script-cue-label">Do — Editor</span><p>Append this block directly below the vector.</p><div class="script-code"><div class="code-panel"><div class="panel-head"><span class="panel-title">Append below the vector</span><button class="copy-button" type="button" data-copy="code-readings-print">Copy code</button></div><pre><code id="code-readings-print"></code></pre></div></div></div>
+              <div class="script-cue"><span class="script-cue-label">Say</span><p>Both calls use <code>println</code>, which prints its arguments and ends with a new line. The second call prints the label followed by Julia’s display of the whole vector.</p></div>
+            </div></div>
+          </article>
+          <article class="delivery-step">
+            <span class="delivery-number" aria-hidden="true">4</span>
+            <div class="delivery-content"><h3>Inspect the first element and run our first checkpoint</h3><div class="script-cues">
+              <div class="script-cue"><span class="script-cue-label">Say</span><p>Before we calculate anything, let’s retrieve the first reading. Julia’s standard arrays use one-based indexing, so index <code>1</code> selects the first value, 18. Python lists start at index <code>0</code>, so the same first-item lookup would use zero there.</p></div>
+              <div class="script-cue do"><span class="script-cue-label">Do — Editor</span><p>Append this lookup directly below the two print statements.</p><div class="script-code"><div class="code-panel"><div class="panel-head"><span class="panel-title">Append below the report lines</span><button class="copy-button" type="button" data-copy="code-readings-index">Copy code</button></div><pre><code id="code-readings-index"></code></pre></div></div></div>
+              <div class="script-cue point"><span class="script-cue-label">Point to</span><p>Indicate <code>temperatures[1]</code> in the new line.</p></div>
+              <div class="script-cue do"><span class="script-cue-label">Do — Terminal</span><p>Save the file. Switch to the terminal in the working file’s folder, type <code>julia daymark.jl</code>, and press Enter.</p></div>
+              <div class="script-cue point"><span class="script-cue-label">Show</span><p>Point to the first-reading line after the command finishes.</p><div class="result script-result"><div class="result-head">Expected output · readings checkpoint</div><pre>Daymark | Temperature brief
+Readings: [18, 22, 19, 25]
+First reading: 18°C</pre></div></div>
+              <div class="script-cue"><span class="script-cue-label">Say</span><p>We can see the title, all four readings in their original order, and the first value printed as 18 degrees. That confirms both that the vector is available to the program and that Julia’s index 1 selects its first element. Now we have data to pass into a reusable calculation.</p></div>
+            </div></div>
+          </article>
+          <div class="chapter-end"><a class="next-link" href="#average">Continue to Step 5 · Calculate the average <span aria-hidden="true">→</span></a></div>
+        </section>
+
+        <section class="chapter" id="average" aria-labelledby="average-title">
+          <div class="chapter-heading"><p class="eyebrow">Delivery · 3 of 6</p><h2 id="average-title">Calculate the average</h2></div>
+          <article class="delivery-step">
+            <span class="delivery-number" aria-hidden="true">5</span>
+            <div class="delivery-content"><h3>Begin a reusable function definition</h3><div class="script-cues">
+              <div class="script-cue"><span class="script-cue-label">Say</span><p>We could add these four numbers by hand, but a function lets us describe the calculation once and use it with a collection. Let’s define <code>average_temperature</code>. The parameter <code>values</code> is the name this function will use for the collection it receives.</p></div>
+              <div class="script-cue do"><span class="script-cue-label">Do — Editor</span><p>At the bottom of the working file, type this block. It opens the function; leave the definition open because we’ll add its body in the next steps.</p><div class="script-code"><div class="code-panel"><div class="panel-head"><span class="panel-title">Start the function definition</span><button class="copy-button" type="button" data-copy="code-average-definition">Copy code</button></div><pre><code id="code-average-definition"></code></pre></div></div></div>
+              <div class="script-cue"><span class="script-cue-label">Say</span><p>Here, <code>function</code> begins the definition, <code>average_temperature</code> is its name, and <code>values</code> is its parameter. Defining it tells Julia what work to perform later; it does not call the function or calculate anything yet.</p></div>
+              <div class="script-cue point"><span class="script-cue-label">Point to</span><p>Indicate <code>function average_temperature(values)</code>.</p></div>
+            </div></div>
+          </article>
+          <article class="delivery-step">
+            <span class="delivery-number" aria-hidden="true">6</span>
+            <div class="delivery-content"><h3>Start an accumulator at zero</h3><div class="script-cues">
+              <div class="script-cue"><span class="script-cue-label">Say</span><p>To add an unknown number of readings, we need a running total. We’ll name that variable <code>total</code> and initialize it to zero inside the function. Zero is our starting point before the loop visits any values.</p></div>
+              <div class="script-cue do"><span class="script-cue-label">Do — Editor</span><p>Inside the open function, append this indented block.</p><div class="script-code"><div class="code-panel"><div class="panel-head"><span class="panel-title">Add inside the function</span><button class="copy-button" type="button" data-copy="code-average-accumulator">Copy code</button></div><pre><code id="code-average-accumulator"></code></pre></div></div></div>
+              <div class="script-cue point"><span class="script-cue-label">Point to</span><p>Indicate <code>total = 0</code> as the initial state of the accumulator.</p></div>
+            </div></div>
+          </article>
+          <article class="delivery-step">
+            <span class="delivery-number" aria-hidden="true">7</span>
+            <div class="delivery-content"><h3>Visit each value and build the running total</h3><div class="script-cues">
+              <div class="script-cue"><span class="script-cue-label">Say</span><p>Now let’s visit the collection one value at a time. The loop variable <code>temperature</code> takes the next value from <code>values</code> on each pass. The line <code>total += temperature</code> adds that value to the existing total and stores the new sum.</p></div>
+              <div class="script-cue do"><span class="script-cue-label">Do — Editor</span><p>Still inside the function, append this loop, indenting it inside the function and its accumulation line inside the loop.</p><div class="script-code"><div class="code-panel"><div class="panel-head"><span class="panel-title">Add the loop inside the function</span><button class="copy-button" type="button" data-copy="code-average-loop">Copy code</button></div><pre><code id="code-average-loop"></code></pre></div></div></div>
+              <div class="script-cue"><span class="script-cue-label">Say</span><p>Let’s follow the state of <code>total</code>. It starts at 0. Adding 18 makes 18; adding 22 makes 40; adding 19 makes 59; and adding 25 makes 84.</p><div class="script-trace" aria-label="Running total: zero, eighteen, forty, fifty-nine, eighty-four"><code>0</code><span>→</span><code>18</code><span>→</span><code>40</code><span>→</span><code>59</code><span>→</span><code>84</code></div></div>
+              <div class="script-cue"><span class="script-cue-label">Say</span><p>The line <code>for temperature in values</code> selects each value in sequence. Its <code>end</code> closes the loop, while the function remains open. We’ll calculate and return the average next, then close the function with its own <code>end</code>.</p></div>
+              <div class="script-cue point"><span class="script-cue-label">Point to</span><p>Indicate <code>for temperature in values</code>, its indented accumulation line, and the loop’s <code>end</code>.</p></div>
+            </div></div>
+          </article>
+          <article class="delivery-step">
+            <span class="delivery-number" aria-hidden="true">8</span>
+            <div class="delivery-content"><h3>Divide, return, and close the function</h3><div class="script-cues">
+              <div class="script-cue"><span class="script-cue-label">Say</span><p>We have a total of 84, so we divide by the number of readings. <code>length(values)</code> counts the elements in the vector; here it is 4. The <code>/</code> operator calculates 84 divided by 4, which Julia represents as 21.0. <code>return</code> sends that value back to whichever line called the function.</p></div>
+              <div class="script-cue do"><span class="script-cue-label">Do — Editor</span><p>Append this block after the loop, still inside the function.</p><div class="script-code"><div class="code-panel"><div class="panel-head"><span class="panel-title">Finish and close the function</span><button class="copy-button" type="button" data-copy="code-average-return">Copy code</button></div><pre><code id="code-average-return"></code></pre></div></div></div>
+              <div class="script-cue"><span class="script-cue-label">Say</span><p>The earlier <code>end</code> closed the loop, and this new final <code>end</code> closes the function. Julia marks both block endings explicitly. Python instead uses a colon to begin a block and indentation to show where it ends.</p></div>
+              <div class="script-cue point"><span class="script-cue-label">Point to</span><p>Indicate the loop’s <code>end</code>, then the final <code>end</code> beneath the return line.</p></div>
+              <div class="script-cue"><span class="script-cue-label">Say</span><p>We have defined the calculation, but it still has not run. Next we’ll call it with our vector, then print the value it returns.</p></div>
+            </div></div>
+          </article>
+          <article class="delivery-step">
+            <span class="delivery-number" aria-hidden="true">9</span>
+            <div class="delivery-content"><h3>Call the function with our vector</h3><div class="script-cues">
+              <div class="script-cue do"><span class="script-cue-label">Do — Editor</span><p>Below the function’s closing <code>end</code>, append this call.</p><div class="script-code"><div class="code-panel"><div class="panel-head"><span class="panel-title">Call the completed function</span><button class="copy-button" type="button" data-copy="code-average-call">Copy code</button></div><pre><code id="code-average-call"></code></pre></div></div></div>
+              <div class="script-cue"><span class="script-cue-label">Say</span><p>This line is the call: we write the function’s name, then pass <code>temperatures</code> in parentheses. That argument becomes the parameter <code>values</code> while the function runs. The returned number is assigned to <code>average</code>. This is the difference between defining a function, which describes the work, and calling it, which performs the work with an actual argument.</p></div>
+              <div class="script-cue"><span class="script-cue-label">Say</span><p>Notice that this call computes and stores a value, but the assignment alone does not print it.</p></div>
+              <div class="script-cue point"><span class="script-cue-label">Point to</span><p>Indicate the function definition above, then <code>average_temperature(temperatures)</code> in this call.</p></div>
+            </div></div>
+          </article>
+          <article class="delivery-step">
+            <span class="delivery-number" aria-hidden="true">10</span>
+            <div class="delivery-content"><h3>Print the returned value and run the average checkpoint</h3><div class="script-cues">
+              <div class="script-cue"><span class="script-cue-label">Say</span><p>Now that the function has returned a value and we’ve stored it in <code>average</code>, let’s add a line to show that result in our report.</p></div>
+              <div class="script-cue do"><span class="script-cue-label">Do — Editor</span><p>Append this print line after the function call.</p><div class="script-code"><div class="code-panel"><div class="panel-head"><span class="panel-title">Append the average report line</span><button class="copy-button" type="button" data-copy="code-average-print">Copy code</button></div><pre><code id="code-average-print"></code></pre></div></div></div>
+              <div class="script-cue"><span class="script-cue-label">Say</span><p>In the string <code>"Average: $(average)°C"</code>, Julia evaluates the expression inside <code>$()</code> and inserts its value into the text. Python uses a different form for the same idea, for example <code>f"Average: {average}°C"</code>.</p></div>
+              <div class="script-cue do"><span class="script-cue-label">Do — Terminal</span><p>Save the file, switch to the working folder’s terminal, and run <code>julia daymark.jl</code>.</p></div>
+              <div class="script-cue point"><span class="script-cue-label">Show</span><p>Point to the new average line, while keeping the earlier readings in view.</p><div class="result script-result"><div class="result-head">Expected output · average checkpoint</div><pre>Daymark | Temperature brief
+Readings: [18, 22, 19, 25]
+First reading: 18°C
+Average: 21.0°C</pre></div></div>
+              <div class="script-cue"><span class="script-cue-label">Say</span><p>The earlier lines are still there, and the report now adds an average of 21.0 degrees. We have seen the function call use all four values, accumulate their sum, divide by their count, and return the result. Next we’ll use a condition to label each reading.</p></div>
+            </div></div>
+          </article>
+          <div class="chapter-end"><a class="next-link" href="#labels">Continue to Step 11 · Label each reading <span aria-hidden="true">→</span></a></div>
+        </section>
+
+        <section class="chapter" id="labels" aria-labelledby="labels-title">
+          <div class="chapter-heading"><p class="eyebrow">Delivery · 4 of 6</p><h2 id="labels-title">Label each reading</h2></div>
+          <article class="delivery-step">
+            <span class="delivery-number" aria-hidden="true">11</span>
+            <div class="delivery-content"><h3>Define the threshold rule</h3><div class="script-cues">
+              <div class="script-cue"><span class="script-cue-label">Say</span><p>The average summarizes the whole set, but it does not tell us how each individual day compares with our rule. Let’s define a second function, <code>temperature_label</code>, that receives one value in <code>temp</code> and returns a word.</p></div>
+              <div class="script-cue do"><span class="script-cue-label">Do — Editor</span><p>Append this complete function below the average print statement.</p><div class="script-code"><div class="code-panel"><div class="panel-head"><span class="panel-title">Add the label function</span><button class="copy-button" type="button" data-copy="code-label-function">Copy code</button></div><pre><code id="code-label-function"></code></pre></div></div></div>
+              <div class="script-cue"><span class="script-cue-label">Say</span><p>The condition <code>temp &gt;= 20</code> means “temp is greater than or equal to 20.” When it is true, the function returns <code>"warm"</code>; otherwise, <code>else</code> returns <code>"cool"</code>. The threshold is inclusive, so exactly 20 is warm. The first <code>end</code> closes the conditional, and the next closes the function.</p></div>
+              <div class="script-cue point"><span class="script-cue-label">Point to</span><p>Indicate the condition and each branch’s <code>return</code>, then the two closing <code>end</code> lines.</p></div>
+              <div class="script-cue pause"><span class="script-cue-label">Pause</span><p>Ask, “Would a reading of exactly 20 be warm or cool?” If someone answers, affirm “warm, because the comparison includes equality.” If nobody answers, say that same explanation and continue.</p></div>
+              <div class="script-cue"><span class="script-cue-label">Say</span><p>Just like our average function, this definition sets out a rule but does not apply it yet. The next loop will call this function once for each reading.</p></div>
+            </div></div>
+          </article>
+          <article class="delivery-step">
+            <span class="delivery-number" aria-hidden="true">12</span>
+            <div class="delivery-content"><h3>Call the rule for each value, interpolate the result, and run</h3><div class="script-cues">
+              <div class="script-cue"><span class="script-cue-label">Say</span><p>Let’s add a loop after the label function. It will visit each reading, call the rule, and print the reading together with the returned label.</p></div>
+              <div class="script-cue do"><span class="script-cue-label">Do — Editor</span><p>Append this final program block after the label function. It prints the daily-label heading, then loops over the readings.</p><div class="script-code"><div class="code-panel"><div class="panel-head"><span class="panel-title">Append the daily-label loop</span><button class="copy-button" type="button" data-copy="code-label-loop">Copy code</button></div><pre><code id="code-label-loop"></code></pre></div></div></div>
+              <div class="script-cue"><span class="script-cue-label">Say</span><p>Let’s trace the first call exactly. The loop sets <code>temperature</code> to 18, then the string expression calls <code>temperature_label(18)</code>. The condition <code>18 &gt;= 20</code> is false, so the function reaches the <code>else</code> branch and returns <code>"cool"</code>.</p></div>
+              <div class="script-cue"><span class="script-cue-label">Say</span><p>In the exact string <code>"$(temperature)°C: $(temperature_label(temperature))"</code>, the first <code>$(...)</code> inserts the current reading. The second calls the label function and inserts the word it returns. Python can express the same idea with an f-string such as <code>f"{temperature}°C: {temperature_label(temperature)}"</code>. The final <code>end</code> closes our outer <code>for</code> loop.</p></div>
+              <div class="script-cue point"><span class="script-cue-label">Point to</span><p>Indicate the exact interpolated string and the final <code>end</code> beneath the loop.</p></div>
+              <div class="script-cue do"><span class="script-cue-label">Do — Terminal</span><p>Save the file, switch to the terminal, and run <code>julia daymark.jl</code>.</p></div>
+              <div class="script-cue point"><span class="script-cue-label">Show</span><p>Point first to the new heading and then follow the four temperature-label pairs in order.</p><div class="result script-result"><div class="result-head">Expected output · daily-label checkpoint</div><pre>Daymark | Temperature brief
+Readings: [18, 22, 19, 25]
+First reading: 18°C
+Average: 21.0°C
+Daily labels:
+18°C: cool
+22°C: warm
+19°C: cool
+25°C: warm</pre></div></div>
+              <div class="script-cue"><span class="script-cue-label">Say</span><p>The report now contains the earlier readings and average, followed by one label for each value. 18 and 19 are below 20, so they are cool. 22 and 25 meet or exceed the threshold, so they are warm. The same loop calls the same rule for every reading.</p></div>
+            </div></div>
+          </article>
+          <div class="chapter-end"><a class="next-link" href="#complete">Continue to Step 13 · Run the complete program <span aria-hidden="true">→</span></a></div>
+        </section>
+
+        <section class="chapter" id="complete" aria-labelledby="complete-title">
+          <div class="chapter-heading"><p class="eyebrow">Delivery · 5 of 6</p><h2 id="complete-title">Run the complete program</h2></div>
+          <article class="delivery-step">
+            <span class="delivery-number" aria-hidden="true">13</span>
+            <div class="delivery-content"><h3>Run the assembled file from beginning to end</h3><div class="script-cues">
+              <div class="script-cue"><span class="script-cue-label">Say</span><p>We’ve added the readings, the average calculation, and the daily-label rule to one file. Let’s run that complete file once more and follow how its output matches the statements we built.</p></div>
+              <div class="script-cue do"><span class="script-cue-label">Do — Terminal</span><p>Save the working file. Switch to the terminal in its folder, type <code>julia daymark.jl</code>, and press Enter.</p></div>
+              <div class="script-cue point"><span class="script-cue-label">Show</span><p>Keep the complete terminal report visible and point through it from top to bottom.</p><div class="result script-result"><div class="result-head">Expected output · complete run</div><pre>Daymark | Temperature brief
+Readings: [18, 22, 19, 25]
+First reading: 18°C
+Average: 21.0°C
+Daily labels:
+18°C: cool
+22°C: warm
+19°C: cool
+25°C: warm</pre></div></div>
+              <div class="script-cue"><span class="script-cue-label">Say</span><p>The heading and first three lines come from the statements that print our report title, vector, and indexed reading. The average line shows the value returned by <code>average_temperature</code> and stored in <code>average</code>. The final four lines come from the loop calling <code>temperature_label</code> and interpolating each value with its label.</p></div>
+              <div class="script-cue"><span class="script-cue-label">Say</span><p>So the report follows the same path as the program: first we store and inspect data, then calculate a summary, then make a decision for each value, and finally print the results.</p></div>
+              <div class="script-cue pause"><span class="script-cue-label">Pause</span><p>Give the audience time to inspect the full report. If useful, ask, “Which part produces the average, and which part decides whether one reading is warm?” If no one answers, say, “The average function produces the summary; the comparison inside the label function makes the warm-or-cool decision.”</p></div>
+            </div></div>
+          </article>
+          <div class="chapter-end"><a class="next-link" href="#recap">Continue to Step 14 · Recap <span aria-hidden="true">→</span></a></div>
+        </section>
+
+        <section class="chapter" id="recap" aria-labelledby="recap-title">
+          <div class="chapter-heading"><p class="eyebrow">Delivery · 6 of 6</p><h2 id="recap-title">Close with the Julia ideas</h2></div>
+          <article class="delivery-step">
+            <span class="delivery-number" aria-hidden="true">14</span>
+            <div class="delivery-content"><h3>Connect the concepts and close</h3><div class="script-cues">
+              <div class="script-cue"><span class="script-cue-label">Say</span><p>Let’s recap what we used to build Daymark. We stored related numbers in a vector and used Julia’s one-based indexing to retrieve the first one. We defined functions to give names to reusable work, then called them with actual values when we wanted that work performed.</p></div>
+              <div class="script-cue"><span class="script-cue-label">Say</span><p>Inside the average function, a loop visited each element and <code>+=</code> updated a running total. We divided by <code>length(values)</code> and returned the result. In the label function, a condition selected a return value, and string interpolation combined each reading with that label in the output.</p></div>
+              <div class="script-cue pause"><span class="script-cue-label">Pause</span><p>Ask, “What changes when we move from defining a function to calling it?” If someone answers, acknowledge that a definition describes the work while a call runs it with an argument. If nobody answers, give that explanation and continue.</p></div>
+              <div class="script-cue"><span class="script-cue-label">Say</span><p>That’s Daymark: read, calculate, decide, and report. Thank you for following the program with us. We’re happy to take your questions.</p></div>
+            </div></div>
+          </article>
+          <div class="chapter-end"><a class="next-link" href="#daymark">Return to Step 1 · Opening <span aria-hidden="true">↑</span></a></div>
+        </section>
+      </main>
+
+      <section class="support-section" id="before" aria-labelledby="before-title">
+        <div class="support-inner">
+          <p class="eyebrow">Supporting material · Before the presentation</p>
+          <h2 id="before-title">Before the presentation</h2>
+          <ol class="before-list">
+            <li>Make sure Julia is installed. In the presentation terminal, run <code>julia --version</code> and confirm it reports a version. Julia itself is required to execute the program.</li>
+            <li>The Julia extension for VS Code is optional editor support. Daymark uses only Julia’s standard library; no package installation is required.</li>
+            <li>Download the complete, commented reference with the button below. Open it in VS Code or another editor with <strong>File → Open File</strong>, or use the operating system’s <strong>Open With</strong> option.</li>
+            <li>Keep the reference file in a separate folder. In the presentation folder, create an empty working file named <code>daymark.jl</code> and open a terminal in that folder. During the presentation we will build this empty working file progressively.</li>
+            <li>If Julia needs to be installed on a classroom computer, notify the instructor at least three days in advance.</li>
+          </ol>
+          <a class="support-download" href="./daymark.jl" download="daymark.jl">Download daymark.jl</a>
+          <p class="support-status">The button downloads the source; it does not launch a local editor. Keep the downloaded file as a reference, not as the empty file used for the live build.</p>
+          <p class="support-status">Run the working file from its folder with <code>julia daymark.jl</code>. Output elsewhere on this page is labeled expected output and has not been runtime-verified in this environment.</p>
+        </div>
+      </section>
+
+      <section class="support-section" id="reference" aria-labelledby="reference-title">
+        <div class="support-inner">
+          <p class="eyebrow">Supporting material · Reference</p>
+          <h2 id="reference-title">Complete commented source</h2>
+          <p>Use this file as a reference or fallback. The live delivery path above starts in a separate empty file and builds the same program in sequence.</p>
+          <div class="full-program"><div class="code-panel">
+            <div class="panel-head"><span class="panel-title">daymark.jl · complete program</span><div class="program-actions"><button class="copy-button" type="button" data-copy="complete-program">Copy program</button><a class="download-button" href="./daymark.jl" download="daymark.jl">Download daymark.jl</a></div></div>
+            <pre><code id="complete-program"></code></pre>
+          </div></div>
+          <h3>Language references</h3>
+          <ul class="reference-list">
+            <li><a href="https://docs.julialang.org/en/v1/manual/arrays/" target="_blank" rel="noreferrer">Julia arrays and indexing</a></li>
+            <li><a href="https://docs.julialang.org/en/v1/manual/functions/" target="_blank" rel="noreferrer">Julia functions and return values</a></li>
+            <li><a href="https://docs.julialang.org/en/v1/manual/control-flow/" target="_blank" rel="noreferrer">Julia loops and control flow</a></li>
+            <li><a href="https://docs.julialang.org/en/v1/manual/strings/" target="_blank" rel="noreferrer">Julia strings and interpolation</a></li>
+            <li><a href="https://docs.python.org/3/tutorial/datastructures.html" target="_blank" rel="noreferrer">Python lists and sequences</a></li>
+            <li><a href="https://docs.python.org/3/tutorial/controlflow.html" target="_blank" rel="noreferrer">Python control flow</a></li>
+            <li><a href="https://docs.python.org/3/tutorial/inputoutput.html" target="_blank" rel="noreferrer">Python formatted string literals</a></li>
+          </ul>
+        </div>
+      </section>
+    </div>
+  </div>
+  <div class="live-status" id="live-status" aria-live="polite"></div>
+
+  <script type="text/plain" id="program-source"># Daymark | Temperature brief
+# Summarize four daily Celsius readings with an average and a label per day.
+# Run from this file's folder with: julia daymark.jl
+# Or start Julia in this folder and run: include("daymark.jl")
+
+# 1. Readings
+# Keep the four observations together in one vector.
+temperatures = [18, 22, 19, 25]
+# Print the report heading and the stored readings.
+println("Daymark | Temperature brief")
+println("Readings: ", temperatures)
+# Julia arrays are one-based, so index 1 selects the first reading.
+println("First reading: ", temperatures[1], "°C")
+
+# 2. Average
+# Define a reusable calculation that returns the mean.
+function average_temperature(values)
+    # Start the accumulator at zero.
+    total = 0
+    # Visit each value and add it to the running total.
+    for temperature in values
+        total += temperature
+    end
+    # Divide by the number of readings and return the result.
+    return total / length(values)
+end
+
+# Call the function with our vector.
+average = average_temperature(temperatures)
+# Add the returned value to the report.
+println("Average: $(average)°C")
+
+# 3. Daily labels
+# Define one reusable rule: readings of 20°C or higher are warm.
+function temperature_label(temp)
+    if temp >= 20
+        return "warm"
+    else
+        return "cool"
+    end
+end
+
+# Print a label for each reading.
+println("Daily labels:")
+for temperature in temperatures
+    # Interpolation inserts the reading and returned label into this string.
+    println("$(temperature)°C: $(temperature_label(temperature))")
+end</script>
+
+  <script>
+    (() => {
+      const sections = Array.from(document.querySelectorAll("#delivery .chapter"));
+      const links = Array.from(document.querySelectorAll(".walk-nav .nav-link"));
+      const currentLocation = document.getElementById("current-location");
+      const liveStatus = document.getElementById("live-status");
+      const programSource = document.getElementById("program-source").textContent.trim() + "\n";
+      const visited = new Set();
+      let activeId = sections[0].id;
+      let scrollPending = false;
+
+      function escapeHtml(text) {
+        return text.replace(/[&<>"']/g, char => ({
+          "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+        })[char]);
+      }
+
+      function highlightJulia(source) {
+        const output = [];
+        const keywords = new Set(["function", "for", "in", "end", "return", "if", "else"]);
+        let index = 0;
+        while (index < source.length) {
+          const start = index;
+          const char = source[index];
+          if (char === "#") {
+            while (index < source.length && source[index] !== "\n") index++;
+            output.push(`<span class="token-comment">${escapeHtml(source.slice(start, index))}</span>`);
+          } else if (char === '"') {
+            index++;
+            while (index < source.length) {
+              if (source[index] === "\\") index += 2;
+              else if (source[index++] === '"') break;
+            }
+            output.push(`<span class="token-string">${escapeHtml(source.slice(start, index))}</span>`);
+          } else if (/[A-Za-z_]/.test(char)) {
+            index++;
+            while (index < source.length && /[A-Za-z_0-9!]/.test(source[index])) index++;
+            const token = source.slice(start, index);
+            const type = keywords.has(token) ? "token-keyword" : ["println", "length"].includes(token) ? "token-call" : "";
+            output.push(type ? `<span class="${type}">${escapeHtml(token)}</span>` : escapeHtml(token));
+          } else if (/[0-9]/.test(char)) {
+            index++;
+            while (index < source.length && /[0-9.]/.test(source[index])) index++;
+            output.push(`<span class="token-number">${escapeHtml(source.slice(start, index))}</span>`);
+          } else if (source.startsWith(">=", index) || source.startsWith("+=", index)) {
+            index += 2;
+            output.push(`<span class="token-operator">${escapeHtml(source.slice(start, index))}</span>`);
+          } else {
+            index++;
+            output.push(escapeHtml(char));
+          }
+        }
+        return output.join("");
+      }
+
+      const codeBeats = [
+        ["code-readings-data", "# Daymark | Temperature brief"],
+        ["code-readings-print", "# Print the report heading and the stored readings."],
+        ["code-readings-index", "# Julia arrays are one-based, so index 1 selects the first reading."],
+        ["code-average-definition", "# 2. Average"],
+        ["code-average-accumulator", "# Start the accumulator at zero."],
+        ["code-average-loop", "# Visit each value and add it to the running total."],
+        ["code-average-return", "# Divide by the number of readings and return the result."],
+        ["code-average-call", "# Call the function with our vector."],
+        ["code-average-print", "# Add the returned value to the report."],
+        ["code-label-function", "# 3. Daily labels"],
+        ["code-label-loop", "# Print a label for each reading."]
+      ];
+      const offsets = codeBeats.map(([, marker]) => {
+        const markerOffset = programSource.indexOf(marker);
+        return markerOffset < 0 ? -1 : programSource.lastIndexOf("\n", markerOffset - 1) + 1;
+      });
+      if (offsets.some(offset => offset < 0)) throw new Error("Daymark source is missing a walkthrough code beat.");
+      const ends = [...offsets.slice(1), programSource.length];
+      codeBeats.forEach(([id], index) => {
+        const snippet = programSource.slice(offsets[index], ends[index]).replace(/^\n+|\n+$/g, "") + "\n";
+        document.getElementById(id).innerHTML = highlightJulia(snippet);
+      });
+      document.getElementById("complete-program").innerHTML = highlightJulia(programSource);
+
+      function setCurrent(id) {
+        const index = sections.findIndex(section => section.id === id);
+        if (index < 0) return;
+        activeId = id;
+        visited.add(id);
+        links.forEach((link, linkIndex) => {
+          const current = link.getAttribute("href") === `#${id}`;
+          const completed = visited.has(sections[linkIndex].id) && !current;
+          link.classList.toggle("is-complete", completed);
+          if (current) link.setAttribute("aria-current", "location");
+          else link.removeAttribute("aria-current");
+          link.querySelector(".nav-state").textContent = current ? "Here" : completed ? "Done" : "";
+        });
+        currentLocation.textContent = `${index + 1} / ${sections.length} · ${links[index].querySelector(".nav-title").textContent}`;
+      }
+
+      function updateLocation() {
+        scrollPending = false;
+        const marker = Math.min(window.innerHeight * .34, 250);
+        let current = sections[0];
+        for (const section of sections) {
+          if (section.getBoundingClientRect().top <= marker) current = section;
+          else break;
+        }
+        setCurrent(current.id);
+      }
+      window.addEventListener("scroll", () => {
+        if (scrollPending) return;
+        scrollPending = true;
+        window.requestAnimationFrame(updateLocation);
+      }, { passive: true });
+      links.forEach(link => link.addEventListener("click", () => setCurrent(link.hash.slice(1))));
+
+      function codeFor(id) {
+        return document.getElementById(id).textContent.replace(/\u00a0/g, " ").trimEnd() + "\n";
+      }
+      async function copyText(text) {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          try { await navigator.clipboard.writeText(text); return true; } catch (_) {}
+        }
+        const field = document.createElement("textarea");
+        field.value = text;
+        field.setAttribute("readonly", "");
+        field.style.position = "fixed";
+        field.style.left = "-10000px";
+        document.body.appendChild(field);
+        field.select();
+        let copied = false;
+        try { copied = document.execCommand("copy"); } finally { field.remove(); }
+        return copied;
+      }
+      document.querySelectorAll("[data-copy]").forEach(button => {
+        button.addEventListener("click", async () => {
+          const original = button.textContent;
+          try {
+            const copied = await copyText(codeFor(button.dataset.copy));
+            button.textContent = copied ? "Copied" : "Select code to copy";
+            liveStatus.textContent = copied ? "Code copied to clipboard." : "Copy was unavailable; select the code manually.";
+          } catch (_) {
+            button.textContent = "Copy unavailable";
+            liveStatus.textContent = "Copy was unavailable; select the code manually.";
+          }
+          window.setTimeout(() => { button.textContent = original; }, 1500);
+        });
+      });
+
+      const initialHash = window.location.hash.slice(1);
+      if (sections.some(section => section.id === initialHash)) {
+        requestAnimationFrame(() => {
+          document.getElementById(initialHash).scrollIntoView();
+          setCurrent(initialHash);
+        });
+      } else setCurrent(activeId);
+    })();
+  </script>
+</body>
+</html>
